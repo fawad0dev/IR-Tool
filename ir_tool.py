@@ -29,7 +29,7 @@ class SystemCollector:
             "processor": platform.processor(),
             "boot_time": datetime.datetime.fromtimestamp(psutil.boot_time()).isoformat(),
             "cpu_count": psutil.cpu_count(logical=True),
-            "cpu_percent": psutil.cpu_percent(interval=1),
+            "cpu_percent": psutil.cpu_percent(interval=0.1),
             "memory_total": psutil.virtual_memory().total,
             "memory_available": psutil.virtual_memory().available,
             "memory_percent": psutil.virtual_memory().percent,
@@ -87,15 +87,16 @@ class ProcessCollector:
     def collect() -> List[Dict[str, Any]]:
         """Collect information about running processes"""
         processes = []
-        for proc in psutil.process_iter(['pid', 'name', 'username', 'status', 'create_time', 'cpu_percent', 'memory_percent']):
+        for proc in psutil.process_iter(['pid', 'name', 'username', 'status', 'create_time', 'memory_percent']):
             try:
                 pinfo = proc.info
                 pinfo['create_time'] = datetime.datetime.fromtimestamp(pinfo['create_time']).isoformat()
+                pinfo['cpu_percent'] = 0.0  # Set to 0 for performance; can be enhanced later
                 processes.append(pinfo)
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 pass
         
-        return sorted(processes, key=lambda x: x.get('cpu_percent', 0), reverse=True)
+        return sorted(processes, key=lambda x: x.get('memory_percent', 0), reverse=True)
 
 
 class DiskCollector:
@@ -137,6 +138,10 @@ class DiskCollector:
 
 class IRTool:
     """Main Incident Response Tool class"""
+    
+    # Configuration constants
+    MAX_CONNECTIONS_IN_REPORT = 50
+    MAX_PROCESSES_IN_REPORT = 25
     
     def __init__(self):
         self.timestamp = datetime.datetime.now().isoformat()
@@ -310,7 +315,7 @@ class IRTool:
             </tr>
 """
         
-        for conn in network.get('connections', [])[:50]:  # Limit to first 50
+        for conn in network.get('connections', [])[:self.MAX_CONNECTIONS_IN_REPORT]:
             if 'error' not in conn:
                 html += f"""            <tr>
                 <td>{conn.get('type', 'N/A')}</td>
@@ -323,7 +328,7 @@ class IRTool:
         
         html += """        </table>
         
-        <h2>Top Processes (by CPU)</h2>
+        <h2>Top Processes (by Memory)</h2>
         <table>
             <tr>
                 <th>PID</th>
@@ -336,7 +341,7 @@ class IRTool:
             </tr>
 """
         
-        for proc in processes[:25]:  # Top 25 processes
+        for proc in processes[:self.MAX_PROCESSES_IN_REPORT]:
             html += f"""            <tr>
                 <td>{proc.get('pid', 'N/A')}</td>
                 <td>{proc.get('name', 'N/A')}</td>
