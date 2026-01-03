@@ -9,6 +9,7 @@ A lightweight, cross-platform Python tool for collecting and monitoring system i
 - **Process Monitoring**: List all running processes with actual CPU and memory usage
 - **Disk Analysis**: View disk partitions and usage statistics
 - **Continuous Monitoring Mode**: Track system changes in real-time with periodic updates
+- **Visual Web Dashboard**: Real-time monitoring with beautiful, auto-refreshing web interface
 - **Change Detection**: Identify new/terminated processes and network connections
 - **Resource Alerts**: Automatic alerts for high CPU and memory usage
 - **Multiple Output Formats**: Generate both JSON (for parsing) and HTML (for reporting) outputs
@@ -80,6 +81,28 @@ Save monitoring snapshots to a log file:
 ```bash
 python ir_tool.py --monitor --interval 5 --log monitoring_session.json
 ```
+
+### Visual Monitoring with Web Dashboard
+
+Enable real-time visual monitoring with an interactive web dashboard:
+```bash
+python ir_tool.py --monitor --web
+```
+
+The web dashboard provides:
+- **Live Updates**: Auto-refreshing display of system metrics
+- **Visual Charts**: Progress bars for CPU and memory usage
+- **Color-Coded Alerts**: Warnings for high resource usage
+- **Change Detection**: Visual indicators for new/terminated processes
+- **Network Overview**: Real-time connection monitoring
+- **Modern UI**: Beautiful, responsive dashboard with gradient design
+
+Use a custom port for the web server:
+```bash
+python ir_tool.py --monitor --web --port 8080
+```
+
+The dashboard will automatically open in your default browser and update every 2 seconds with fresh data.
 
 Stop monitoring anytime with `Ctrl+C`.
 
@@ -206,6 +229,14 @@ The HTML report provides a formatted, easy-to-read summary including:
 
 - Python 3.6 or higher
 - psutil library (automatically installed via requirements.txt)
+
+## What's New in v1.2.0
+
+- ✨ **Visual Web Dashboard**: Real-time monitoring with beautiful, auto-refreshing web interface
+- ✨ **Live System Metrics**: Interactive dashboard with progress bars and color-coded alerts
+- ✨ **Auto-Refresh**: Dashboard updates every 2 seconds with fresh data
+- ✨ **Modern UI**: Gradient design with responsive layout
+- ✨ **Change Visualization**: Visual indicators for new/terminated processes and connections
 
 ## What's New in v1.1.0
 
