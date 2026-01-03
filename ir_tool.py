@@ -16,6 +16,7 @@ import sys
 import copy
 import webbrowser
 import threading
+import shutil
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from typing import Dict, List, Any, Optional
 from html_renderer import HTMLRenderer
@@ -388,7 +389,6 @@ class IRTool:
         if web_mode:
             try:
                 # Copy dashboard template to current directory
-                import shutil
                 template_dir = os.path.join(os.path.dirname(__file__), 'templates')
                 dashboard_file = os.path.join(template_dir, 'monitor_dashboard.html')
                 
@@ -401,8 +401,8 @@ class IRTool:
                 web_server = MonitorWebServer(port=web_port)
                 web_server.start()
                 
-                # Open browser automatically
-                time.sleep(1)  # Give server time to start
+                # Open browser automatically (give server time to start)
+                time.sleep(1)
                 webbrowser.open(f'http://localhost:{web_port}/monitor_dashboard.html')
                 print("[+] Opening web dashboard in browser...")
                 print()
