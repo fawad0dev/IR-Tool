@@ -1,13 +1,16 @@
 # IR-Tool: Incident Response Tool
 
-A lightweight, cross-platform Python tool for collecting system information during incident response investigations. This tool helps security professionals quickly gather critical system data including processes, network connections, disk usage, and system configuration.
+A lightweight, cross-platform Python tool for collecting and monitoring system information during incident response investigations. This tool helps security professionals quickly gather critical system data including processes, network connections, disk usage, and system configuration with real-time monitoring capabilities.
 
 ## Features
 
 - **System Information Collection**: Gather OS details, CPU, memory, and boot time
 - **Network Analysis**: Capture active connections and network interfaces
-- **Process Monitoring**: List all running processes with CPU and memory usage
+- **Process Monitoring**: List all running processes with actual CPU and memory usage
 - **Disk Analysis**: View disk partitions and usage statistics
+- **Continuous Monitoring Mode**: Track system changes in real-time with periodic updates
+- **Change Detection**: Identify new/terminated processes and network connections
+- **Resource Alerts**: Automatic alerts for high CPU and memory usage
 - **Multiple Output Formats**: Generate both JSON (for parsing) and HTML (for reporting) outputs
 - **Cross-Platform**: Works on Linux, Windows, and macOS
 
@@ -26,14 +29,14 @@ pip install -r requirements.txt
 
 ## Usage
 
-### Basic Usage
+### Single Snapshot Mode
 
-Collect all information and save as JSON:
+Collect all information once and save as JSON:
 ```bash
 python ir_tool.py
 ```
 
-This will generate `ir_report.json` in the current directory.
+This will generate `ir_report.json` in the current directory and display a summary.
 
 ### Generate HTML Report
 
@@ -56,6 +59,30 @@ Generate only HTML report:
 python ir_tool.py --no-json --html report.html
 ```
 
+### Continuous Monitoring Mode
+
+Monitor system continuously with periodic updates:
+```bash
+python ir_tool.py --monitor
+```
+
+Monitor with custom update interval (in seconds):
+```bash
+python ir_tool.py --monitor --interval 10
+```
+
+Monitor for a specific duration:
+```bash
+python ir_tool.py --monitor --interval 5 --duration 60
+```
+
+Save monitoring snapshots to a log file:
+```bash
+python ir_tool.py --monitor --interval 5 --log monitoring_session.json
+```
+
+Stop monitoring anytime with `Ctrl+C`.
+
 ### Run with Elevated Privileges
 
 For complete network connection information (including PIDs), run with elevated privileges:
@@ -69,6 +96,28 @@ sudo python ir_tool.py
 ```powershell
 python ir_tool.py
 ```
+
+## Monitoring Features
+
+### Real-Time Updates
+In monitoring mode, the tool continuously collects system information and displays:
+- Current system metrics (CPU, memory usage)
+- Top CPU-consuming processes
+- Active network connections
+- Changes from previous snapshots
+
+### Change Detection
+The tool automatically detects and reports:
+- New processes started since last update
+- Terminated processes
+- New network connections established
+- Closed network connections
+
+### Resource Alerts
+Automatic alerts for:
+- Processes using >70% CPU
+- Processes using >70% memory
+- Helps quickly identify resource-intensive or potentially malicious processes
 
 ## Output Examples
 
@@ -88,6 +137,19 @@ The JSON output contains structured data suitable for automated analysis:
 }
 ```
 
+### Monitoring Log
+When using `--log`, captures multiple snapshots over time:
+```json
+{
+  "monitoring_session": {
+    "start_time": "2026-01-03T12:00:00",
+    "end_time": "2026-01-03T12:05:00",
+    "total_iterations": 60,
+    "snapshots": [...]
+  }
+}
+```
+
 ### HTML Report
 The HTML report provides a formatted, easy-to-read summary including:
 - System overview with key metrics
@@ -97,11 +159,13 @@ The HTML report provides a formatted, easy-to-read summary including:
 
 ## Use Cases
 
-- **Incident Response**: Quickly capture system state during security incidents
+- **Incident Response**: Quickly capture system state during security incidents and monitor for suspicious activities
 - **System Auditing**: Document system configuration and running processes
-- **Performance Analysis**: Identify resource-intensive processes
+- **Performance Analysis**: Identify resource-intensive processes in real-time
 - **Forensics**: Create point-in-time snapshots for investigation
 - **Compliance**: Generate system inventory reports
+- **Threat Hunting**: Monitor for new processes and network connections that may indicate compromise
+- **Baseline Comparison**: Track changes in system behavior over time
 
 ## Collected Information
 
@@ -120,7 +184,7 @@ The HTML report provides a formatted, easy-to-read summary including:
 ### Process Module
 - All running processes
 - Process IDs (PIDs)
-- CPU and memory usage per process
+- Real-time CPU and memory usage per process
 - Process start times
 - Process owners
 
@@ -136,11 +200,21 @@ The HTML report provides a formatted, easy-to-read summary including:
 - **Privileges**: Some data requires elevated privileges to collect completely.
 - **Storage**: Store reports securely and delete when no longer needed.
 - **Privacy**: Be aware of privacy implications when collecting user information.
+- **Monitoring**: Continuous monitoring can generate large log files; manage disk space appropriately.
 
 ## Requirements
 
 - Python 3.6 or higher
 - psutil library (automatically installed via requirements.txt)
+
+## What's New in v1.1.0
+
+- ✨ **Continuous Monitoring Mode**: Track system changes in real-time
+- ✨ **Actual CPU Usage**: Processes now show real CPU usage instead of 0%
+- ✨ **Change Detection**: Identify new/terminated processes and connections
+- ✨ **Resource Alerts**: Automatic alerts for high resource usage
+- ✨ **Console Summary**: Rich summary output in terminal
+- ✨ **Monitoring Logs**: Save multiple snapshots to JSON for analysis
 
 ## Contributing
 
