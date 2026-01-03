@@ -12,6 +12,7 @@ import os
 import datetime
 import argparse
 from typing import Dict, List, Any
+from html_renderer import HTMLRenderer
 
 
 class SystemCollector:
@@ -146,6 +147,11 @@ class IRTool:
     def __init__(self):
         self.timestamp = datetime.datetime.now().isoformat()
         self.data = {}
+        self.system_collector = SystemCollector()
+        self.network_collector = NetworkCollector()
+        self.process_collector = ProcessCollector()
+        self.disk_collector = DiskCollector()
+        self.html_renderer = HTMLRenderer()
     
     def collect_all(self):
         """Collect all available information"""
@@ -173,208 +179,15 @@ class IRTool:
             json.dump(self.data, f, indent=2)
         print(f"[+] JSON report saved to: {filename}")
     
-    def save_html(self, filename: str):
-        """Save collected data as HTML report"""
-        html = self._generate_html()
-        with open(filename, 'w') as f:
-            f.write(html)
-        print(f"[+] HTML report saved to: {filename}")
+    def save_html(self, filename):
+        """Save collected data as HTML report using template"""
+        html_content = self.html_renderer.render(self.data)
+        
+        with open(filename, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+        
+        print(f"HTML report saved to {filename}")
     
-    def _generate_html(self) -> str:
-        """Generate HTML report"""
-        system = self.data.get('system', {})
-        network = self.data.get('network', {})
-        processes = self.data.get('processes', [])
-        disk = self.data.get('disk', {})
-        metadata = self.data.get('metadata', {})
-        
-        html = f"""<!DOCTYPE html>
-<html>
-<head>
-    <title>IR-Tool Report - {system.get('hostname', 'Unknown')}</title>
-    <style>
-        body {{
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background-color: #f5f5f5;
-        }}
-        .container {{
-            max-width: 1200px;
-            margin: 0 auto;
-            background-color: white;
-            padding: 20px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }}
-        h1 {{
-            color: #333;
-            border-bottom: 3px solid #4CAF50;
-            padding-bottom: 10px;
-        }}
-        h2 {{
-            color: #4CAF50;
-            margin-top: 30px;
-            border-bottom: 2px solid #ddd;
-            padding-bottom: 5px;
-        }}
-        table {{
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-        }}
-        th, td {{
-            padding: 10px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }}
-        th {{
-            background-color: #4CAF50;
-            color: white;
-            font-weight: bold;
-        }}
-        tr:hover {{
-            background-color: #f5f5f5;
-        }}
-        .info-box {{
-            background-color: #e8f5e9;
-            padding: 15px;
-            margin: 10px 0;
-            border-left: 4px solid #4CAF50;
-        }}
-        .warning {{
-            background-color: #fff3cd;
-            border-left-color: #ffc107;
-        }}
-        .metadata {{
-            color: #666;
-            font-size: 0.9em;
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid #ddd;
-        }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Incident Response Report</h1>
-        
-        <div class="metadata">
-            <strong>Report Generated:</strong> {metadata.get('timestamp', 'N/A')}<br>
-            <strong>Tool:</strong> {metadata.get('tool', 'N/A')} v{metadata.get('version', 'N/A')}
-        </div>
-        
-        <h2>System Information</h2>
-        <div class="info-box">
-            <strong>Hostname:</strong> {system.get('hostname', 'N/A')}<br>
-            <strong>Platform:</strong> {system.get('platform', 'N/A')} {system.get('platform_release', 'N/A')}<br>
-            <strong>Architecture:</strong> {system.get('architecture', 'N/A')}<br>
-            <strong>Processor:</strong> {system.get('processor', 'N/A')}<br>
-            <strong>Boot Time:</strong> {system.get('boot_time', 'N/A')}<br>
-            <strong>CPU Count:</strong> {system.get('cpu_count', 'N/A')}<br>
-            <strong>CPU Usage:</strong> {system.get('cpu_percent', 'N/A')}%<br>
-            <strong>Memory Total:</strong> {self._format_bytes(system.get('memory_total', 0))}<br>
-            <strong>Memory Available:</strong> {self._format_bytes(system.get('memory_available', 0))}<br>
-            <strong>Memory Usage:</strong> {system.get('memory_percent', 'N/A')}%
-        </div>
-        
-        <h2>Disk Information</h2>
-        <table>
-            <tr>
-                <th>Device</th>
-                <th>Mount Point</th>
-                <th>Type</th>
-                <th>Total</th>
-                <th>Used</th>
-                <th>Free</th>
-                <th>Usage %</th>
-            </tr>
-"""
-        
-        for part in disk.get('partitions', []):
-            if 'error' not in part:
-                html += f"""            <tr>
-                <td>{part.get('device', 'N/A')}</td>
-                <td>{part.get('mountpoint', 'N/A')}</td>
-                <td>{part.get('fstype', 'N/A')}</td>
-                <td>{self._format_bytes(part.get('total', 0))}</td>
-                <td>{self._format_bytes(part.get('used', 0))}</td>
-                <td>{self._format_bytes(part.get('free', 0))}</td>
-                <td>{part.get('percent', 'N/A')}%</td>
-            </tr>
-"""
-        
-        html += """        </table>
-        
-        <h2>Network Connections</h2>
-        <table>
-            <tr>
-                <th>Protocol</th>
-                <th>Local Address</th>
-                <th>Remote Address</th>
-                <th>Status</th>
-                <th>PID</th>
-            </tr>
-"""
-        
-        for conn in network.get('connections', [])[:self.MAX_CONNECTIONS_IN_REPORT]:
-            if 'error' not in conn:
-                html += f"""            <tr>
-                <td>{conn.get('type', 'N/A')}</td>
-                <td>{conn.get('local_addr', 'N/A')}</td>
-                <td>{conn.get('remote_addr', 'N/A') or '-'}</td>
-                <td>{conn.get('status', 'N/A')}</td>
-                <td>{conn.get('pid', 'N/A') or '-'}</td>
-            </tr>
-"""
-        
-        html += """        </table>
-        
-        <h2>Top Processes (by Memory)</h2>
-        <table>
-            <tr>
-                <th>PID</th>
-                <th>Name</th>
-                <th>Username</th>
-                <th>Status</th>
-                <th>CPU %</th>
-                <th>Memory %</th>
-                <th>Started</th>
-            </tr>
-"""
-        
-        for proc in processes[:self.MAX_PROCESSES_IN_REPORT]:
-            html += f"""            <tr>
-                <td>{proc.get('pid', 'N/A')}</td>
-                <td>{proc.get('name', 'N/A')}</td>
-                <td>{proc.get('username', 'N/A')}</td>
-                <td>{proc.get('status', 'N/A')}</td>
-                <td>{proc.get('cpu_percent', 0):.1f}%</td>
-                <td>{proc.get('memory_percent', 0):.1f}%</td>
-                <td>{proc.get('create_time', 'N/A')}</td>
-            </tr>
-"""
-        
-        html += """        </table>
-        
-        <div class="metadata">
-            <p><strong>Note:</strong> This report contains a snapshot of system information at the time of collection. 
-            For ongoing investigations, collect multiple snapshots over time.</p>
-        </div>
-    </div>
-</body>
-</html>
-"""
-        return html
-    
-    @staticmethod
-    def _format_bytes(bytes_value: int) -> str:
-        """Format bytes to human readable format"""
-        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
-            if bytes_value < 1024.0:
-                return f"{bytes_value:.2f} {unit}"
-            bytes_value /= 1024.0
-        return f"{bytes_value:.2f} PB"
-
-
 def main():
     parser = argparse.ArgumentParser(
         description='IR-Tool: Incident Response Tool for collecting system information',
