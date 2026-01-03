@@ -14,6 +14,9 @@ import argparse
 import time
 import sys
 import copy
+import webbrowser
+import threading
+from http.server import HTTPServer, SimpleHTTPRequestHandler
 from typing import Dict, List, Any, Optional
 from html_renderer import HTMLRenderer
 
@@ -148,6 +151,39 @@ class DiskCollector:
         }
 
 
+class QuietHTTPRequestHandler(SimpleHTTPRequestHandler):
+    """HTTP request handler with minimal logging"""
+    
+    def log_message(self, format, *args):
+        """Suppress HTTP request logs"""
+        pass
+
+
+class MonitorWebServer:
+    """Simple web server for monitoring dashboard"""
+    
+    def __init__(self, port: int = 8000):
+        self.port = port
+        self.server = None
+        self.thread = None
+        self.running = False
+    
+    def start(self):
+        """Start the web server in a background thread"""
+        self.server = HTTPServer(('localhost', self.port), QuietHTTPRequestHandler)
+        self.running = True
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        print(f"[+] Web dashboard server started at http://localhost:{self.port}")
+    
+    def stop(self):
+        """Stop the web server"""
+        if self.server:
+            self.server.shutdown()
+            self.running = False
+            print("[*] Web dashboard server stopped")
+
+
 class IRTool:
     """Main Incident Response Tool class"""
     
@@ -187,7 +223,7 @@ class IRTool:
         self.data['metadata'] = {
             "timestamp": self.timestamp,
             "tool": "IR-Tool",
-            "version": "1.1.0"
+            "version": "1.2.0"
         }
     
     def detect_changes(self) -> Dict[str, Any]:
@@ -323,47 +359,102 @@ class IRTool:
         print("=" * 60 + "\n")
     
     def monitor(self, interval: int = 5, duration: Optional[int] = None, 
-                output_file: Optional[str] = None):
+                output_file: Optional[str] = None, web_mode: bool = False, 
+                web_port: int = 8000):
         """Continuous monitoring mode
         
         Args:
             interval: Seconds between updates
             duration: Total monitoring duration in seconds (None for infinite)
             output_file: Optional file to log snapshots
+            web_mode: Enable web dashboard for visual monitoring
+            web_port: Port for web dashboard (default: 8000)
         """
         print("=" * 60)
         print("IR-Tool: Continuous Monitoring Mode")
         print("=" * 60)
         print(f"Update Interval: {interval} seconds")
         print(f"Duration: {'Infinite (Ctrl+C to stop)' if duration is None else f'{duration} seconds'}")
+        if web_mode:
+            print(f"Web Dashboard: http://localhost:{web_port}")
         print("=" * 60 + "\n")
         
         start_time = time.time()
         iteration = 0
         snapshots = []
+        web_server = None
+        
+        # Start web server if web mode is enabled
+        if web_mode:
+            try:
+                # Copy dashboard template to current directory
+                import shutil
+                template_dir = os.path.join(os.path.dirname(__file__), 'templates')
+                dashboard_file = os.path.join(template_dir, 'monitor_dashboard.html')
+                
+                if os.path.exists(dashboard_file):
+                    shutil.copy(dashboard_file, 'monitor_dashboard.html')
+                    print("[+] Dashboard template copied to current directory")
+                else:
+                    print("[!] Warning: Dashboard template not found, web mode may not work properly")
+                
+                web_server = MonitorWebServer(port=web_port)
+                web_server.start()
+                
+                # Open browser automatically
+                time.sleep(1)  # Give server time to start
+                webbrowser.open(f'http://localhost:{web_port}/monitor_dashboard.html')
+                print("[+] Opening web dashboard in browser...")
+                print()
+            except Exception as e:
+                print(f"[!] Warning: Could not start web server: {e}")
+                print("[*] Continuing in console mode...")
+                web_mode = False
         
         try:
             while True:
                 iteration += 1
                 self.timestamp = datetime.datetime.now().isoformat()
                 
-                print(f"[{self.timestamp}] Update #{iteration}")
+                if not web_mode:
+                    print(f"[{self.timestamp}] Update #{iteration}")
                 
                 # Collect data with optimized CPU interval for monitoring
                 self.collect_all(cpu_interval=0.1)  # Small interval for reasonable accuracy and speed
                 
-                # Display summary
-                self.display_summary(show_changes=(iteration > 1))
+                # Get changes information
+                changes = self.detect_changes() if iteration > 1 else {}
+                
+                # Write data to JSON file for web dashboard
+                if web_mode:
+                    web_data = {
+                        'timestamp': self.timestamp,
+                        'iteration': iteration,
+                        'system': self.data.get('system', {}),
+                        'processes': self.data.get('processes', []),
+                        'network': self.data.get('network', {}),
+                        'disk': self.data.get('disk', {}),
+                        'changes': changes
+                    }
+                    with open('monitor_data.json', 'w') as f:
+                        json.dump(web_data, f, indent=2)
+                    
+                    # Print minimal console output in web mode
+                    print(f"[{self.timestamp}] Update #{iteration} - View dashboard at http://localhost:{web_port}/monitor_dashboard.html")
+                else:
+                    # Display summary in console mode
+                    self.display_summary(show_changes=(iteration > 1))
                 
                 # Check for high resource usage
                 alerts = self.get_high_resource_processes(cpu_threshold=70.0, memory_threshold=70.0)
                 if alerts['high_cpu_processes'] or alerts['high_memory_processes']:
-                    print("*** ALERT: High Resource Usage Detected! ***")
-                    for proc in alerts['high_cpu_processes'][:3]:
-                        print(f"  High CPU: {proc['name']} (PID: {proc['pid']}) - {proc['cpu_percent']:.1f}%")
-                    for proc in alerts['high_memory_processes'][:3]:
-                        print(f"  High Memory: {proc['name']} (PID: {proc['pid']}) - {proc['memory_percent']:.1f}%")
-                    print()
+                    if not web_mode:
+                        print("*** ALERT: High Resource Usage Detected! ***")
+                        for proc in alerts['high_cpu_processes'][:3]:
+                            print(f"  High CPU: {proc['name']} (PID: {proc['pid']}) - {proc['cpu_percent']:.1f}%")
+                        for proc in alerts['high_memory_processes'][:3]:
+                            print(f"  High Memory: {proc['name']} (PID: {proc['pid']}) - {proc['memory_percent']:.1f}%")
+                        print()
                 
                 # Store snapshot
                 if output_file:
@@ -383,12 +474,17 @@ class IRTool:
                     break
                 
                 # Wait for next iteration
-                print(f"[*] Waiting {interval} seconds for next update...")
-                print()
+                if not web_mode:
+                    print(f"[*] Waiting {interval} seconds for next update...")
+                    print()
                 time.sleep(interval)
                 
         except KeyboardInterrupt:
             print("\n[*] Monitoring stopped by user.")
+        finally:
+            # Stop web server if running
+            if web_server and web_server.running:
+                web_server.stop()
         
         # Save all snapshots if output file specified
         if output_file and snapshots:
@@ -416,6 +512,8 @@ Examples:
   python ir_tool.py --json data.json --html report.html  # Save both formats
   python ir_tool.py --monitor --interval 10  # Monitor continuously every 10 seconds
   python ir_tool.py --monitor --interval 5 --duration 60  # Monitor for 60 seconds
+  python ir_tool.py --monitor --web          # Monitor with visual web dashboard
+  python ir_tool.py --monitor --web --port 8080  # Web dashboard on custom port
   
 Note: Run with elevated privileges (sudo/admin) for complete information.
         """
@@ -465,10 +563,23 @@ Note: Run with elevated privileges (sudo/admin) for complete information.
         help='Save monitoring snapshots to a JSON log file'
     )
     
+    parser.add_argument(
+        '--web',
+        action='store_true',
+        help='Enable web dashboard for visual monitoring (only works with --monitor)'
+    )
+    
+    parser.add_argument(
+        '--port',
+        type=int,
+        default=8000,
+        help='Port for web dashboard (default: 8000)'
+    )
+    
     args = parser.parse_args()
     
     print("=" * 60)
-    print("IR-Tool: Incident Response Tool v1.1.0")
+    print("IR-Tool: Incident Response Tool v1.2.0")
     print("=" * 60)
     print()
     
@@ -480,7 +591,9 @@ Note: Run with elevated privileges (sudo/admin) for complete information.
         tool.monitor(
             interval=args.interval,
             duration=args.duration,
-            output_file=args.log
+            output_file=args.log,
+            web_mode=args.web,
+            web_port=args.port
         )
     else:
         # Single snapshot mode

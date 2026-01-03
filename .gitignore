@@ -36,6 +36,7 @@ env/
 reports/
 *.json
 *.html
+!templates/*.html
 
 # OS
 .DS_Store
