@@ -13,6 +13,7 @@ import datetime
 import argparse
 import time
 import sys
+import copy
 from typing import Dict, List, Any, Optional
 from html_renderer import HTMLRenderer
 
@@ -215,14 +216,14 @@ class IRTool:
         # Detect new network connections
         if 'network' in self.data and 'network' in self.previous_data:
             current_conns = {
-                f"{c.get('local_addr', '')}:{c.get('remote_addr', '')}" 
+                f"{c.get('local_addr', 'N/A')}:{c.get('remote_addr', 'N/A')}:{c.get('status', '')}" 
                 for c in self.data['network'].get('connections', [])
-                if 'error' not in c
+                if 'error' not in c and c.get('local_addr') and c.get('remote_addr')
             }
             previous_conns = {
-                f"{c.get('local_addr', '')}:{c.get('remote_addr', '')}" 
+                f"{c.get('local_addr', 'N/A')}:{c.get('remote_addr', 'N/A')}:{c.get('status', '')}" 
                 for c in self.previous_data['network'].get('connections', [])
-                if 'error' not in c
+                if 'error' not in c and c.get('local_addr') and c.get('remote_addr')
             }
             
             new_connections = current_conns - previous_conns
@@ -348,8 +349,8 @@ class IRTool:
                 
                 print(f"[{self.timestamp}] Update #{iteration}")
                 
-                # Collect data with shorter CPU interval for faster monitoring
-                self.collect_all(cpu_interval=0.0)  # Use instant CPU reading for faster updates
+                # Collect data with optimized CPU interval for monitoring
+                self.collect_all(cpu_interval=0.1)  # Small interval for reasonable accuracy and speed
                 
                 # Display summary
                 self.display_summary(show_changes=(iteration > 1))
@@ -357,7 +358,7 @@ class IRTool:
                 # Check for high resource usage
                 alerts = self.get_high_resource_processes(cpu_threshold=70.0, memory_threshold=70.0)
                 if alerts['high_cpu_processes'] or alerts['high_memory_processes']:
-                    print("⚠️  ALERT: High Resource Usage Detected!")
+                    print("*** ALERT: High Resource Usage Detected! ***")
                     for proc in alerts['high_cpu_processes'][:3]:
                         print(f"  High CPU: {proc['name']} (PID: {proc['pid']}) - {proc['cpu_percent']:.1f}%")
                     for proc in alerts['high_memory_processes'][:3]:
@@ -373,8 +374,8 @@ class IRTool:
                     }
                     snapshots.append(snapshot)
                 
-                # Store for comparison
-                self.previous_data = self.data.copy()
+                # Store for comparison (use deep copy to avoid reference issues)
+                self.previous_data = copy.deepcopy(self.data)
                 
                 # Check if duration exceeded
                 if duration and (time.time() - start_time) >= duration:
