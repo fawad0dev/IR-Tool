@@ -1,6 +1,7 @@
 <div align="center">
   <img src="Resources/main.png" alt="IR-Tool Logo" width="300">
 </div>
+
 # IR-Tool: Incident Response Tool
 
 A lightweight, cross-platform Python tool for collecting and monitoring system information during incident response investigations. This tool helps security professionals quickly gather critical system data including processes, network connections, disk usage, and system configuration with real-time monitoring capabilities.
